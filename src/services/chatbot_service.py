@@ -1,5 +1,5 @@
 import os
-import requests
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,7 +24,8 @@ async def call_send_api(sender_psid, message_text):
     }
     
     try:
-        response = requests.post(url, json=payload)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload)
         data = response.json()
         
         print(f"📡 Facebook API Response: {data}")
