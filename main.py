@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from src.routes.routes import router
@@ -10,7 +11,6 @@ app.include_router(router)
 
 @app.get("/debug")
 async def debug():
-    import os
     token = os.getenv("PAGE_ACCESS_TOKEN")
     return {
         "PAGE_ACCESS_TOKEN": (str(token)[:20] + "...") if token else "❌ MISSING",

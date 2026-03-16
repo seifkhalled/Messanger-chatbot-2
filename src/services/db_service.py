@@ -1,22 +1,23 @@
 import os
+import traceback
 from supabase import create_client
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SECRET_KEY")
+def get_db_client():
+    """Create a fresh Supabase client using env vars loaded at call time."""
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SECRET_KEY")
 
-print(f"SUPABASE_URL: {'✅ Loaded' if SUPABASE_URL else '❌ MISSING'}")
-print(f"SUPABASE_KEY: {'✅ Loaded' if SUPABASE_KEY else '❌ MISSING'}")
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise Exception("❌ Missing Supabase environment variables.")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise Exception("❌ Missing Supabase environment variables.")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_lead(psid: str):
     try:
+        supabase = get_db_client()
         response = supabase.table("leads") \
             .select("*") \
             .eq("psid", psid) \
@@ -24,21 +25,22 @@ def get_lead(psid: str):
             .execute()
         return response.data
     except Exception as e:
-        # Supabase returns 406 or similar if single() finds no rows, which is fine
-        if "NGRX" in str(e) or "PGRST116" in str(e): # Common codes for no rows
+        error_str = str(e)
+        # Supabase returns PGRST116 when single() finds no rows — that's expected
+        if "PGRST116" in error_str or "NGRX" in error_str:
             return None
         print(f"❌ DB Read Error: {e}")
+        traceback.print_exc()
         return None
 
-def save_lead(psid: str, name: str = None, 
-              phone: str = None, state: str = None):
+def save_lead(psid: str, name: str = None, phone: str = None, state: str = None):
     try:
-        data = {
-            "psid": psid,
-            "state": state
-        }
-        if name: data["name"] = name
-        if phone: data["phone"] = phone
+        supabase = get_db_client()
+        data = {"psid": psid, "state": state}
+        if name is not None:
+            data["name"] = name
+        if phone is not None:
+            data["phone"] = phone
 
         supabase.table("leads") \
             .upsert(data, on_conflict="psid") \
@@ -46,3 +48,4 @@ def save_lead(psid: str, name: str = None,
         print(f"✅ Lead saved: {psid}")
     except Exception as e:
         print(f"❌ DB Write Error: {e}")
+        traceback.print_exc()
