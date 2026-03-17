@@ -59,6 +59,7 @@ def _is_authorized(request: Request) -> bool:
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 
+@app.post("/")
 @app.post("/send")
 async def send_pending_messages(request: Request):
     """

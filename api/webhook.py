@@ -60,6 +60,7 @@ def _verify_hmac(raw_body: bytes, signature_header: str | None) -> bool:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@app.get("/")
 @app.get("/webhook")
 async def verify_webhook(
     hub_mode: str = Query(None, alias="hub.mode"),
@@ -75,6 +76,7 @@ async def verify_webhook(
     return PlainTextResponse("Forbidden", status_code=403)
 
 
+@app.post("/")
 @app.post("/webhook")
 async def webhook(request: Request):
     """
