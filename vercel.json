@@ -1,15 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/webhook.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/send_message.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/*.py": {
+      "maxDuration": 15
     }
-  ],
+  },
   "routes": [
     {
       "src": "/webhook",
