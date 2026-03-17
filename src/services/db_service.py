@@ -33,8 +33,8 @@ def get_lead(psid: str):
         traceback.print_exc()
         return None
 
-def is_message_processed(mid: str):
-    """Check if a message ID has already been processed to prevent duplicates."""
+def is_duplicate(mid: str) -> bool:
+    """Return True if this mid already exists (any status). Prevents double-processing."""
     try:
         supabase = get_db_client()
         response = supabase.table("processed_messages") \
@@ -43,21 +43,59 @@ def is_message_processed(mid: str):
             .execute()
         return len(response.data) > 0
     except Exception as e:
-        # If table doesn't exist, we might want to log it but continue
-        print(f"⚠️ Deduplication check failed (maybe table missing?): {e}")
+        print(f"⚠️ Deduplication check failed: {e}")
         return False
 
-def log_message(mid: str, psid: str, text: str):
-    """Log an incoming message for idempotency."""
+def enqueue_message(mid: str, psid: str, text: str) -> None:
+    """Insert a new pending message into the queue. Call ONLY after is_duplicate() returns False."""
     try:
         supabase = get_db_client()
         supabase.table("processed_messages").insert({
             "mid": mid,
             "psid": psid,
-            "text": text
+            "text": text,
+            "status": "pending"
         }).execute()
+        print(f"📥 Enqueued: {mid}")
     except Exception as e:
-        print(f"❌ Error logging message: {e}")
+        print(f"❌ Error enqueuing message: {e}")
+        traceback.print_exc()
+
+def fetch_pending_messages(limit: int = 20) -> list:
+    """Fetch up to `limit` messages with status='pending' for the worker to process."""
+    try:
+        supabase = get_db_client()
+        response = supabase.table("processed_messages") \
+            .select("*") \
+            .eq("status", "pending") \
+            .limit(limit) \
+            .execute()
+        return response.data or []
+    except Exception as e:
+        print(f"❌ Error fetching pending messages: {e}")
+        return []
+
+def mark_message_done(mid: str) -> None:
+    """Mark a message as successfully processed."""
+    try:
+        supabase = get_db_client()
+        supabase.table("processed_messages") \
+            .update({"status": "done"}) \
+            .eq("mid", mid) \
+            .execute()
+    except Exception as e:
+        print(f"❌ Error marking done [{mid}]: {e}")
+
+def mark_message_failed(mid: str) -> None:
+    """Mark a message as failed so it can be retried or inspected."""
+    try:
+        supabase = get_db_client()
+        supabase.table("processed_messages") \
+            .update({"status": "failed"}) \
+            .eq("mid", mid) \
+            .execute()
+    except Exception as e:
+        print(f"❌ Error marking failed [{mid}]: {e}")
 
 from typing import Optional
 
