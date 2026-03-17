@@ -41,18 +41,22 @@ async def webhook(request: Request):
             for event in messaging:
                 sender_psid = event.get("sender", {}).get("id")
                 message = event.get("message", {})
-                
-                # Extract text and ignore non-text messages for now
+                mid = message.get("mid")
                 text = message.get("text")
-                if not sender_psid or not text:
+                
+                if not sender_psid or not text or not mid:
+                    continue
+
+                # 1. Idempotency Check
+                from src.services.db_service import is_message_processed, log_message
+                if is_message_processed(mid):
+                    print(f"⏭️ Skipping duplicate message: {mid}")
                     continue
 
                 print(f"📩 Received: [{sender_psid}] {text}")
 
-                # Process message asynchronously: Fire and forget locally
-                # Vercel's execution ends when we return, but we await the handle_message
-                # for now to ensure it completes before the function instance potentially sleeps.
-                # However, for 200 OK reliability, we must be fast.
+                # 2. Log & Process
+                log_message(mid, sender_psid, text)
                 await handle_message(sender_psid, text)
 
         return PlainTextResponse("EVENT_RECEIVED", status_code=200)
